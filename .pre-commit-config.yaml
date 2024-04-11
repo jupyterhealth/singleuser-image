@@ -1,0 +1,45 @@
+ci:
+  # pre-commit.ci will open PRs updating our hooks once a month
+  autoupdate_schedule: monthly
+
+repos:
+  # autoformat and lint Python code
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.5
+    hooks:
+      - id: ruff
+        types_or:
+          - python
+          - jupyter
+        args: [--fix, --show-fixes]
+      - id: ruff-format
+        types_or:
+          - python
+          - jupyter
+
+  # Autoformat: yaml
+  - repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+    rev: v2.13.0
+    hooks:
+      - id: pretty-format-yaml
+        args: [--autofix, --offset, '2']
+
+  # Autoformat: markdown
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-myst
+          - mdformat-black
+
+  # Autoformat and linting, misc. details
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: requirements-txt-fixer
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-yaml
