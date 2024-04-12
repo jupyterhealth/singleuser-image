@@ -10,7 +10,10 @@ import json
 from collections.abc import ItemsView, KeysView
 
 import boto3.session
+import pandas as pd
 from commonhealth_cloud_storage_client import CHClient, CHStorageDelegate
+
+from .utils import tidy_record
 
 
 class AWSSecretStorageDelegate(CHStorageDelegate):
@@ -94,14 +97,12 @@ class AWSSecretStorageDelegate(CHStorageDelegate):
 
     # additional API methods not in the base class
 
-    @property
     def keys(self) -> KeysView:
-        """Return currently stored keys"""
+        """Return currently stored keys, like dict.keys()"""
         return self._secret_value.keys()
 
-    @property
     def items(self) -> ItemsView:
-        """Return currently stored items, as `dict.items()`"""
+        """Return currently stored items, like `dict.items()`"""
         return self._secret_value.items()
 
 
@@ -166,3 +167,23 @@ class JupyterHealthCHClient(CHClient):
         # load user_kwargs so they can override any of the defaults above
         kwargs.update(user_kwargs)
         super().__init__(**kwargs)
+
+    # additional API
+
+    def list_patients(self) -> list[str]:
+        """Return list of patient ids
+
+        These are the keys that may be passed to e.g. fetch_data
+        """
+        patient_list = []
+        for key in self.storage_delegate.keys():
+            if key.startswith("patient_id_mapping/"):
+                _prefix, _, name = key.partition("/")
+                patient_list.append(name)
+        return patient_list
+
+    def fetch_data_frame(self, patient_id: str) -> pd.DataFrame:
+        """Wrapper around fetch_data, returns a DataFrame"""
+        resources = self.fetch_data(patient_id)
+        records = [tidy_record(r) for r in resources]
+        return pd.DataFrame.from_records(records)

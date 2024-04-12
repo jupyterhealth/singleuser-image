@@ -17,6 +17,7 @@ requires-python = ">=3.7"
 dependencies = [
     "boto3",
     "commonhealth_cloud_storage_client >=1.0.5",
+    "pandas",
 ]
 
 [project.urls]
