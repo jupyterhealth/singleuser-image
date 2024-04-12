@@ -111,18 +111,18 @@ class JupyterHealthCHClient(CHClient):
     Fills out default values for all args and loads state from AWS Secrets
     """
 
-    def __init__(self, deployment: str = "testing", *, client=None, **user_kwargs):
+    def __init__(self, deployment: str = "prod", *, client=None, **user_kwargs):
         """Construct a JupyterHealth cilent for Common Health Cloud
 
         Credentials will be loaded from the environment and defaults.
         No arguments are required.
 
-        By default, creates a client connected to the 'testing' application,
+        By default, creates a client connected to the 'prod' pre-MVP application,
         but pass::
 
-            JupyterHealthCHClient("prod")
+            JupyterHealthCHClient("testing")
 
-        to connect to the production pre-MVP application.
+        to connect to the testing application.
 
         A boto3 `client=Session().client("secretsmanager")` can be provided,
         otherwise a default client will be constructed loading credentials from the environment
