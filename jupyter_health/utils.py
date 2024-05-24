@@ -53,7 +53,13 @@ def tidy_record(record: ResourceHolder) -> dict:
     # this seems to be true, though. Alternately, could add `header_` to header
     data.update(flatten_dict(record_header))
     data.update(flatten_dict(record_body))
-    for key in data:
+    for key in list(data):
         if key.endswith("date_time"):
-            data[key] = pd.to_datetime(data[key], utc=True)
+            timestamp = data[key]
+            # vega-lite doesn't like timestamps with tz info, so must be utc or naive
+            # data[_date_time] is the utc timestamp
+            data[key] = pd.to_datetime(timestamp, utc=True)
+            # data[_date_time_local] is local time for the measurement (without tz info)
+            # used for e.g. time-of-day binning
+            data[key + "_local"] = pd.to_datetime(timestamp).tz_localize(None)
     return data
