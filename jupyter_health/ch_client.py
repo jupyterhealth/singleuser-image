@@ -12,42 +12,36 @@ from collections.abc import ItemsView, KeysView
 import boto3.session
 import pandas as pd
 from commonhealth_cloud_storage_client import CHClient, CHStorageDelegate
+from redis import Redis
 
 from .utils import tidy_record
 
 
-# TODO: Move these classes to separate storage delegate class
-class AWSSecretStorageDelegate(CHStorageDelegate):
-    """Implement CommonHealth storage delegate API backed by AWS secret"""
+class RedisStorageDelegate(CHStorageDelegate):
+    """Implement CommonHealth storage delegate API backed by Redis"""
 
-    def __init__(
-        self, secret_name: str, *, client: boto3.session.Session | None = None
-    ):
-        """Construct a CHStorageDelegate backed by an AWS Secret
+    def __init__(self, name: str, *, host: str = "localhost", port: int = 6379):
+        """Construct a CHStorageDelegate backed by a Redis database
 
         Args:
-            secret_name: the name of the secret
-            client (optional): the boto3 secretsmanager client
-                If not defined, will be constructed with defaults from the environment
+            host (optional): redis domain name
+            port (optional): redis port
         """
-        if client is None:
-            session = boto3.session.Session()
-            self.client = session.client("secretsmanager")
-        self.client = client
-        self.secret_name = secret_name
+        self.redis = Redis(host=host, port=port, decode_responses=True)
         self._cached_value = None
+        self.name = name
 
     def _load(self):
-        """Load the secret value into a local cache"""
-        secret_response = self.client.get_secret_value(SecretId=self.secret_name)
-        self._cached_value = json.loads(secret_response["SecretString"])
+        self._cached_value = self.redis.hgetall(self.name)
 
     def _save(self):
         """Persist any changes to the secret"""
-        self.client.update_secret(
-            SecretId=self.secret_name,
-            SecretString=json.dumps(self._cached_value),
-        )
+        if self._cached_value is not None:
+            self.redis.hset(self.name, mapping=self._cached_value)
+
+    def clear_all_values() -> None:
+        """Currently not allowed"""
+        raise NotImplementedError("Clear all values not allowed")
 
     @property
     def _secret_value(self):
@@ -58,8 +52,6 @@ class AWSSecretStorageDelegate(CHStorageDelegate):
         if self._cached_value is None:
             self._load()
         return self._cached_value
-
-    # the storage delegate API
 
     def get_secure_value(self, key: str, default=None) -> str | None:
         """Retrieve one secret value
@@ -82,22 +74,6 @@ class AWSSecretStorageDelegate(CHStorageDelegate):
         self._secret_value.pop(key)
         self._save()
 
-    def clear_all_values(self) -> None:
-        """Clear all values in the storage
-
-        Probably shouldn't do this!
-        """
-        raise NotImplementedError("clear all values not allowed")
-        self._load()
-        new_value = {}
-        # don't allow deleting signing key
-        if "private_signing_key" in self._cached_value:
-            new_value["private_signing_key"] = self._cached_value["private_signing_key"]
-        self._cached_value = new_value
-        self._save()
-
-    # additional API methods not in the base class
-
     def keys(self) -> KeysView:
         """Return currently stored keys, like dict.keys()"""
         return self._secret_value.keys()
@@ -114,7 +90,7 @@ class JupyterHealthCHClient(CHClient):
     """
 
     def __init__(self, deployment: str = "prod", *, client=None, **user_kwargs):
-        """Construct a JupyterHealth cilent for Common Health Cloud
+        """Construct a JupyterHealth client for Common Health Cloud
 
         Credentials will be loaded from the environment and defaults.
         No arguments are required.
@@ -153,10 +129,9 @@ class JupyterHealthCHClient(CHClient):
         )
         credentials = json.loads(credentials_secret["SecretString"])
 
-        # construct storage delegate backed by AWS Secret
-        storage = AWSSecretStorageDelegate(
-            client=self.client, secret_name=storage_delegate_secret_name
-        )
+        # construct storage delegate backed by Redis
+        storage = RedisStorageDelegate(name=storage_delegate_secret_name)
+
         # fill out default kwargs for the base class constructor
         kwargs = dict(
             ch_authorization_deeplink="https://appdev.tcpdev.org/m/phr/cloud-sharing/authorize",
