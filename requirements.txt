@@ -1,11 +1,10 @@
 # additional requirements to be installed with pip
 black
+commonhealth_cloud_storage_client
 jupyterlab-code-formatter
+jwt
 nbgitpuller
+pandas
 pre-commit
 ruff
 voila
-commonhealth_cloud_storage_client
-pandas
-jwt
-
