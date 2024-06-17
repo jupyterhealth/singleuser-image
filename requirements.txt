@@ -7,5 +7,6 @@ jwt
 nbgitpuller
 pandas
 pre-commit
+redis
 ruff
 voila
