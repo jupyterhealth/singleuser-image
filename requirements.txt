@@ -1,5 +1,6 @@
 # additional requirements to be installed with pip
 black
+boto3
 commonhealth_cloud_storage_client
 jupyterlab-code-formatter
 jwt
