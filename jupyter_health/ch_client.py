@@ -16,6 +16,7 @@ from commonhealth_cloud_storage_client import CHClient, CHStorageDelegate
 from .utils import tidy_record
 
 
+# TODO: Move these classes to separate storage delegate class
 class AWSSecretStorageDelegate(CHStorageDelegate):
     """Implement CommonHealth storage delegate API backed by AWS secret"""
 
@@ -140,7 +141,10 @@ class JupyterHealthCHClient(CHClient):
         # connect the client
         if client is None:
             session = boto3.session.Session()
-            client = session.client("secretsmanager")
+            client = session.client(
+                service_name="secretsmanager", region_name="us-east-2"
+            )
+            # Fails without missing region name
         self.client = client
 
         # fetch client_id/secret for the ch cloud API
