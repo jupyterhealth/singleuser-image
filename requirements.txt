@@ -1,7 +1,9 @@
+.
 # additional requirements to be installed with pip
 black
 jupyterlab-code-formatter
 nbgitpuller
 pre-commit
+psycopg2
 ruff
 voila
