@@ -6,6 +6,6 @@ RUN mamba install -y jupyterhub==4.1.5 \
 
 ARG PIP_CACHE_DIR=/tmp/pip-cache
 COPY . /src/
-RUN cd /src/ && \
-    --mount=type=cache,uid=1000,target=${PIP_CACHE_DIR} \
+RUN --mount=type=cache,uid=1000,target=${PIP_CACHE_DIR} \
+    cd /src/ && \
     pip install -r requirements.txt .
