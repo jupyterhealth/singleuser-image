@@ -1,109 +1,107 @@
 """JupyterHealth subclass of CommonHealth client
 
 - sets default values
-- loads state from AWS Secrets (credentials loaded by default)
+- loads state from postgresql database
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import ItemsView, KeysView
+import logging
+import time
 
-import boto3.session
+import boto3
 import pandas as pd
 from commonhealth_cloud_storage_client import CHClient, CHStorageDelegate
+from commonhealth_cloud_storage_client.errors import ImproperlyConfigured
+from psycopg2 import InterfaceError, OperationalError, connect
 
 from .utils import tidy_record
 
 
-class AWSSecretStorageDelegate(CHStorageDelegate):
-    """Implement CommonHealth storage delegate API backed by AWS secret"""
+class PSQLStorageDelegate(CHStorageDelegate):
+    """Implement CommonHealth storage delegate API backed by managed encrypted PostgreSQL database"""
+
+    table_create = """CREATE TABLE IF NOT EXISTS key_value 
+    (key TEXT NOT NULL, enc_value TEXT NOT NULL, date INTEGER NOT NULL, CONSTRAINT unique_key UNIQUE (key));"""
+
+    insert = """INSERT INTO key_value (key, enc_value, date) 
+    VALUES (%s, %s, %s) 
+    ON CONFLICT (key) DO UPDATE SET 
+    enc_value=EXCLUDED.enc_value,
+    date=EXCLUDED.date"""
 
     def __init__(
-        self, secret_name: str, *, client: boto3.session.Session | None = None
+        self,
+        host: str,
+        password: str,
+        dbname: str = "postgres",
+        user="postgres",
+        port=5432,
+        **kwargs,
     ):
-        """Construct a CHStorageDelegate backed by an AWS Secret
+        """Construct a CHStorageDelegate backed by a Postgres database
 
         Args:
-            secret_name: the name of the secret
-            client (optional): the boto3 secretsmanager client
+            host: the location of the database
+            password: the password or access token to the database
+            dbname (optional): the database name, defaults to "postgres"
+            user (optional): the database user name, defaults to "postgres"
+            port (optional): the exposed port, defaults to 5432
                 If not defined, will be constructed with defaults from the environment
         """
-        if client is None:
-            session = boto3.session.Session()
-            self.client = session.client("secretsmanager")
-        self.client = client
-        self.secret_name = secret_name
-        self._cached_value = None
+        self.logger = kwargs.get("logger", logging.getLogger(__name__))
+        self.logger.info(f"Connecting to {host}")
+        sslmode = kwargs.pop("sslmode", "require")
+        try:
+            self.conn = connect(
+                dbname=dbname,
+                user=user,
+                host=host,
+                password=password,
+                port=port,
+                sslmode=sslmode,
+            )
+        except (OperationalError, InterfaceError) as e:
+            self.logger.warning(f"Error connecting to the database: {e}")
+            raise ImproperlyConfigured from e
 
-    def _load(self):
-        """Load the secret value into a local cache"""
-        secret_response = self.client.get_secret_value(SecretId=self.secret_name)
-        self._cached_value = json.loads(secret_response["SecretString"])
+        self.logger.info("Connection established")
+        self._init()
 
-    def _save(self):
-        """Persist any changes to the secret"""
-        self.client.update_secret(
-            SecretId=self.secret_name,
-            SecretString=json.dumps(self._cached_value),
-        )
+    def _init(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute(PSQLStorageDelegate.table_create)
 
-    @property
-    def _secret_value(self):
-        """The value of the secret as a dict
-
-        Loads it if it hasn't been loaded yet
-        """
-        if self._cached_value is None:
-            self._load()
-        return self._cached_value
-
-    # the storage delegate API
-
-    def get_secure_value(self, key: str, default=None) -> str | None:
-        """Retrieve one secret value
-
-        if not defined, return None
-        """
-        return self._secret_value.get(key, default)
+    def get_secure_value(self, key: str) -> str | None:
+        """Load the secret value from the database"""
+        with self.conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM key_value WHERE key=%s LIMIT 1", (key,))
+            row = cursor.fetchone()
+            if not row:
+                logging.warning(f"No data found for {key}")
+                return None
+            self.logger.debug(f"Retrieved row {row}")
+            return row[1]
 
     def set_secure_value(self, key: str, value: str) -> None:
-        """Set one new value"""
-        # load before writing to avoid writing back stale state
-        self._load()
-        self._secret_value[key] = value
-        self._save()
+        """Set a secret value in the database"""
+        self.logger.debug(f"Setting secure value for {key}")
+        with self.conn.cursor() as cursor:
+            cursor.execute(PSQLStorageDelegate.insert, (key, value, time.time()))
+        self.logger.debug(f"Data inserted for {key}")
 
-    def clear_value(self, key: str) -> None:
-        """Remove one value from the storage"""
-        if key not in self._secret_value:
-            return
-        self._secret_value.pop(key)
-        self._save()
+    def clear_value(self, key) -> None:
+        """Remove a value from the database"""
+        with self.conn.cursor() as cursor:
+            cursor.execute("DELETE FROM key_value WHERE key=%s", (key,))
+        self.logger.debug(f"Data removed for {key}")
 
     def clear_all_values(self) -> None:
-        """Clear all values in the storage
-
-        Probably shouldn't do this!
-        """
-        raise NotImplementedError("clear all values not allowed")
-        self._load()
-        new_value = {}
-        # don't allow deleting signing key
-        if "private_signing_key" in self._cached_value:
-            new_value["private_signing_key"] = self._cached_value["private_signing_key"]
-        self._cached_value = new_value
-        self._save()
-
-    # additional API methods not in the base class
-
-    def keys(self) -> KeysView:
-        """Return currently stored keys, like dict.keys()"""
-        return self._secret_value.keys()
-
-    def items(self) -> ItemsView:
-        """Return currently stored items, like `dict.items()`"""
-        return self._secret_value.items()
+        """Remove all values from the database"""
+        with self.conn.cursor() as cursor:
+            cursor.execute("DELETE FROM key_value")
+        self.logger.debug("All values cleared")
 
 
 class JupyterHealthCHClient(CHClient):
@@ -112,7 +110,9 @@ class JupyterHealthCHClient(CHClient):
     Fills out default values for all args and loads state from AWS Secrets
     """
 
-    def __init__(self, deployment: str = "prod", *, client=None, **user_kwargs):
+    def __init__(
+        self, host, password, deployment: str = "prod", *, client=None, **user_kwargs
+    ):
         """Construct a JupyterHealth cilent for Common Health Cloud
 
         Credentials will be loaded from the environment and defaults.
@@ -134,7 +134,6 @@ class JupyterHealthCHClient(CHClient):
         self.deployment = deployment
 
         # the names of the secrets where state is stored:
-        storage_delegate_secret_name = f"ch-cloud-delegate-{deployment}"
         credentials_secret_name = f"ch-cloud-creds-{deployment}"
 
         # connect the client
@@ -150,9 +149,7 @@ class JupyterHealthCHClient(CHClient):
         credentials = json.loads(credentials_secret["SecretString"])
 
         # construct storage delegate backed by AWS Secret
-        storage = AWSSecretStorageDelegate(
-            client=self.client, secret_name=storage_delegate_secret_name
-        )
+        storage = PSQLStorageDelegate(host=host, password=password)
         # fill out default kwargs for the base class constructor
         kwargs = dict(
             ch_authorization_deeplink="https://appdev.tcpdev.org/m/phr/cloud-sharing/authorize",
