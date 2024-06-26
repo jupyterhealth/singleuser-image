@@ -48,7 +48,6 @@ class PSQLStorageDelegate(CHStorageDelegate):
             dbname (optional): the database name, defaults to "postgres"
             user (optional): the database user name, defaults to "postgres"
             port (optional): the exposed port, defaults to 5432
-                If not defined, will be constructed with defaults from the environment
         """
         self.logger = kwargs.get("logger", logging.getLogger(__name__))
         self.logger.info(f"Connecting to {host}")
