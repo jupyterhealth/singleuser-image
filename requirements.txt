@@ -1,5 +1,6 @@
 # additional requirements to be installed with pip
 black
+cgmquantify
 jupyterlab-code-formatter
 nbgitpuller
 pre-commit
