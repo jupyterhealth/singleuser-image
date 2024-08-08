@@ -1,6 +1,8 @@
 # additional requirements to be installed with pip
 black
-cgmquantify
+# latest cgmquantify release doesn't install
+# this appears to be original author's latest version
+https://github.com/DigitalBiomarkerDiscoveryPipeline/cgmquantify/archive/55bb5bcb4f3a5a6cf4399f2879040a7b83d62675.tar.gz
 jupyterlab-code-formatter
 nbgitpuller
 pre-commit
