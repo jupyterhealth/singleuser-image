@@ -1,189 +1,187 @@
-"""JupyterHealth subclass of CommonHealth client
+"""JupyterHealth client implementation
 
-- sets default values
-- loads state from AWS Secrets (credentials loaded by default)
+wraps CHCS and FHIR APIs in convenience methods
 """
 
 from __future__ import annotations
 
-import json
-from collections.abc import ItemsView, KeysView
+import os
+from enum import Enum
+from typing import Any, Generator, Literal, cast, overload
 
-import boto3.session
 import pandas as pd
-from commonhealth_cloud_storage_client import CHClient, CHStorageDelegate
+import requests
+from yarl import URL
 
-from .utils import tidy_record
-
-
-class AWSSecretStorageDelegate(CHStorageDelegate):
-    """Implement CommonHealth storage delegate API backed by AWS secret"""
-
-    def __init__(
-        self, secret_name: str, *, client: boto3.session.Session | None = None
-    ):
-        """Construct a CHStorageDelegate backed by an AWS Secret
-
-        Args:
-            secret_name: the name of the secret
-            client (optional): the boto3 secretsmanager client
-                If not defined, will be constructed with defaults from the environment
-        """
-        if client is None:
-            session = boto3.session.Session()
-            self.client = session.client("secretsmanager")
-        self.client = client
-        self.secret_name = secret_name
-        self._cached_value = None
-
-    def _load(self):
-        """Load the secret value into a local cache"""
-        secret_response = self.client.get_secret_value(SecretId=self.secret_name)
-        self._cached_value = json.loads(secret_response["SecretString"])
-
-    def _save(self):
-        """Persist any changes to the secret"""
-        self.client.update_secret(
-            SecretId=self.secret_name,
-            SecretString=json.dumps(self._cached_value),
-        )
-
-    @property
-    def _secret_value(self):
-        """The value of the secret as a dict
-
-        Loads it if it hasn't been loaded yet
-        """
-        if self._cached_value is None:
-            self._load()
-        return self._cached_value
-
-    # the storage delegate API
-
-    def get_secure_value(self, key: str, default=None) -> str | None:
-        """Retrieve one secret value
-
-        if not defined, return None
-        """
-        return self._secret_value.get(key, default)
-
-    def set_secure_value(self, key: str, value: str) -> None:
-        """Set one new value"""
-        # load before writing to avoid writing back stale state
-        self._load()
-        self._secret_value[key] = value
-        self._save()
-
-    def clear_value(self, key: str) -> None:
-        """Remove one value from the storage"""
-        if key not in self._secret_value:
-            return
-        self._secret_value.pop(key)
-        self._save()
-
-    def clear_all_values(self) -> None:
-        """Clear all values in the storage
-
-        Probably shouldn't do this!
-        """
-        raise NotImplementedError("clear all values not allowed")
-        self._load()
-        new_value = {}
-        # don't allow deleting signing key
-        if "private_signing_key" in self._cached_value:
-            new_value["private_signing_key"] = self._cached_value["private_signing_key"]
-        self._cached_value = new_value
-        self._save()
-
-    # additional API methods not in the base class
-
-    def keys(self) -> KeysView:
-        """Return currently stored keys, like dict.keys()"""
-        return self._secret_value.keys()
-
-    def items(self) -> ItemsView:
-        """Return currently stored items, like `dict.items()`"""
-        return self._secret_value.items()
+from .utils import tidy_observation
 
 
-class JupyterHealthCHClient(CHClient):
+class Code(Enum):
+    """Enum of recognized coding values"""
+
+    BLOOD_PRESSURE = "omh:blood-pressure:4.0"
+    BLOOD_GLUCOSE = "omh:blood-glucose:4.0"
+
+
+class RequestError(requests.HTTPError):
+    """Subclass of request error that shows the actual error"""
+
+    def __init__(self, requests_error: requests.HTTPError) -> None:
+        """Wrap a requests HTTPError"""
+        self.requests_error = requests_error
+
+    def __str__(self) -> str:
+        """Add the actual error, not just the generic HTTP status code"""
+        response = self.requests_error.response
+        chunks = [str(self.requests_error)]
+        content_type = response.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            detail = "(html error page)"
+        else:
+            try:
+                # extract detail from JSON
+                detail = response.json()["detail"]
+            except Exception:
+                # truncate so it doesn't get too long
+                try:
+                    detail = response.text[:1024]
+                except Exception:
+                    # encoding error?
+                    detail = None
+        if detail:
+            chunks.append(detail)
+        return "\n".join(chunks)
+
+
+class JupyterHealthCHClient:
     """JupyterHealth client for CommonHealth Cloud
 
     Fills out default values for all args and loads state from AWS Secrets
     """
 
-    def __init__(self, deployment: str = "prod", *, client=None, **user_kwargs):
-        """Construct a JupyterHealth cilent for Common Health Cloud
+    def __init__(
+        self, token: str | None = None, chcs_url: str = "https://chcs.fly.dev"
+    ):
+        """Construct a JupyterHealth cilent for Common Health Cloud Storage
 
         Credentials will be loaded from the environment and defaults.
         No arguments are required.
 
-        By default, creates a client connected to the 'prod' pre-MVP application,
-        but pass::
-
-            JupyterHealthCHClient("testing")
-
-        to connect to the testing application.
-
-        A boto3 `client=Session().client("secretsmanager")` can be provided,
-        otherwise a default client will be constructed loading credentials from the environment
-        (works on the JupyterHealth deployment).
-
-        Any additional keyword arguments will be passed through to CHClient
+        By default, creates a client connected to the MVP application.
         """
-        self.deployment = deployment
+        if token is None:
+            token = os.environ.get("CHCS_TOKEN", None)
 
-        # the names of the secrets where state is stored:
-        storage_delegate_secret_name = f"ch-cloud-delegate-{deployment}"
-        credentials_secret_name = f"ch-cloud-creds-{deployment}"
+        self._url = URL(chcs_url)
+        self.session = requests.Session()
+        self.session.headers = {"Authorization": f"Bearer {token}"}
 
-        # connect the client
-        if client is None:
-            session = boto3.session.Session()
-            client = session.client("secretsmanager")
-        self.client = client
+    @overload
+    def _api_request(
+        self, path: str, *, return_response: Literal[True], **kwargs
+    ) -> requests.Response: ...
+    # def _api_request(self, path: str, *, return_response=Literal[False], **kwargs) -> dict[str,Any] | None: ...
+    @overload
+    def _api_request(
+        self, path: str, *, method: str = "GET", check=True, fhir=False, **kwargs
+    ) -> dict[str, Any] | None: ...
+    def _api_request(
+        self,
+        path: str,
+        *,
+        method: str = "GET",
+        check=True,
+        return_response=False,
+        fhir=False,
+        **kwargs,
+    ) -> dict[str, Any] | requests.Response | None:
+        """Make an API request"""
+        if fhir:
+            url = self._url / "fhir/r5"
+        else:
+            url = self._url / "api/v1"
+        url = url / path
+        r = self.session.request(method, str(url), **kwargs)
+        if check:
+            try:
+                r.raise_for_status()
+            except requests.HTTPError as e:
+                raise RequestError(e) from None
+        if return_response:
+            return r
+        if r.content:
+            return r.json()
+        else:
+            # return None for empty response body
+            return None
 
-        # fetch client_id/secret for the ch cloud API
-        credentials_secret = self.client.get_secret_value(
-            SecretId=credentials_secret_name
-        )
-        credentials = json.loads(credentials_secret["SecretString"])
+    def _list_api_request(self, path, **kwargs):
+        """Get a list from an /api/v1 endpoint"""
+        r: dict = self._api_request(path, **kwargs)
+        yield from r["results"]
+        # TODO: handle pagination fields
 
-        # construct storage delegate backed by AWS Secret
-        storage = AWSSecretStorageDelegate(
-            client=self.client, secret_name=storage_delegate_secret_name
-        )
-        # fill out default kwargs for the base class constructor
-        kwargs = dict(
-            ch_authorization_deeplink="https://appdev.tcpdev.org/m/phr/cloud-sharing/authorize",
-            ch_host="chcs.tcpdev.org",
-            ch_port=443,
-            ch_scheme="https",
-            storage_delegate=storage,
-            partner_id=credentials["partner_id"],
-            client_id=credentials["client_id"],
-            client_secret=credentials["client_secret"],
-        )
-        # load user_kwargs so they can override any of the defaults above
-        kwargs.update(user_kwargs)
-        super().__init__(**kwargs)
+    def _fhir_list_api_request(self, path, **kwargs):
+        """Get a list from a fhir endpoint"""
+        r: dict = self._api_request(path, fhir=True, **kwargs)
+        for entry in r["entry"]:
+            # entry seems to always be a dict with one key?
+            if isinstance(entry, dict) and len(entry) == 1:
+                # return entry['resource'] which is ~always the only thing
+                # in the list
+                yield list(entry.values())[0]
+            else:
+                yield entry
+        # TODO: handle pagination fields
 
-    # additional API
+    def get_user(self) -> dict[str, Any]:
+        """Get the current user"""
+        return cast(dict[str, Any], self._api_request("users/profile"))
 
-    def list_patients(self) -> list[str]:
+    def list_patients(self) -> Generator[dict[str, Any]]:
         """Return list of patient ids
 
         These are the keys that may be passed to e.g. fetch_data
         """
-        patient_list = []
-        for key in self.storage_delegate.keys():
-            if key.startswith("patient_id_mapping/"):
-                _prefix, _, name = key.partition("/")
-                patient_list.append(name)
-        return patient_list
+        return self._list_api_request("patients")
 
-    def fetch_data_frame(self, patient_id: str) -> pd.DataFrame:
-        """Wrapper around fetch_data, returns a DataFrame"""
-        resources = self.fetch_data(patient_id)
-        records = [tidy_record(r) for r in resources]
+    def list_observations(
+        self,
+        patient_id: str | None = None,
+        study_id: str | None = None,
+        code: str | None = None,
+    ) -> Generator[dict]:
+        """Fetch observations for given patient and/or study
+
+        At least one of patient_id and study_id is required.
+
+        code is optional, and can be selected from enum JupyterHealth.Code
+        """
+        if not patient_id and not study_id:
+            raise ValueError("Must specify at least one of patient_id or study_id")
+        params = {}
+        if study_id:
+            params["_has:Group:member:_id"] = study_id
+        if patient_id:
+            params["patient"] = patient_id
+        if code:
+            if isinstance(code, Code):
+                code = code.value
+            if "|" not in code:
+                # no code system specified, default to openmhealth
+                code = f"https://w3id.org/openmhealth|{code}"
+            params["code"] = code
+        return self._fhir_list_api_request("Observation", params=params)
+
+    def list_observations_df(
+        self,
+        patient_id: str | None = None,
+        study_id: str | None = None,
+        code: str | None = None,
+    ) -> pd.DataFrame:
+        """Wrapper around list_observations, returns a DataFrame"""
+        observations = self.list_observations(
+            patient_id=patient_id, study_id=study_id, code=code
+        )
+        records = [tidy_observation(obs) for obs in observations]
         return pd.DataFrame.from_records(records)

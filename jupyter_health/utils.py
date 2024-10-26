@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+import json
+
 import pandas as pd
-from commonhealth_cloud_storage_client import ResourceHolder
 
 
 def flatten_dict(d: dict, prefix: str = "") -> dict:
@@ -24,11 +26,14 @@ def flatten_dict(d: dict, prefix: str = "") -> dict:
     }
     """
     flat_dict = {}
+    if isinstance(d, list):
+        # treat list as dict with integer keys
+        d = {i: item for i, item in enumerate(d)}
     for key, value in d.items():
         if prefix:
             key = f"{prefix}_{key}"
 
-        if isinstance(value, dict):
+        if isinstance(value, (dict, list)):
             for sub_key, sub_value in flatten_dict(value, prefix=key).items():
                 flat_dict[sub_key] = sub_value
         else:
@@ -36,19 +41,42 @@ def flatten_dict(d: dict, prefix: str = "") -> dict:
     return flat_dict
 
 
-def tidy_record(record: ResourceHolder) -> dict:
-    """Given a CHCS ResourceHolder, return a flat dictionary
+def tidy_observation(observation: dict) -> dict:
+    """Given a CHCS Observation, return a flat dictionary
 
     reshapes data to a one-level dictionary, appropriate for
     `pandas.from_records`.
 
     any fields ending with 'date_time' are parsed as timestamps
     """
-    record_header = record.json_content["header"]
-    record_body = record.json_content["body"]
+    id = observation["id"]
+    attachment = observation["valueAttachment"]
+    if "json" not in attachment["contentType"]:
+        raise ValueError(
+            f"Unrecognized contentType={attachment['contentType']} in observation {id}"
+        )
+
+    record = json.loads(base64.b64decode(attachment["data"]))
+
+    if "body" in record:
+        record_header = record.get("header", {})
+        record_body = record["body"]
+    else:
+        # older format, not sure we need to deal with this
+        record_header = {}
+        record_body = record
+    # resolve code
+    # todo: handle more than one?
+    coding = observation["code"]["coding"][0]
     data = {
-        "resource_type": record.resource_type,
+        "resource_type": coding["code"],
     }
+    top_level_dict = {
+        key: value
+        for key, value in observation.items()
+        if key not in {"valueAttachment"}
+    }
+    data.update(flatten_dict(top_level_dict))
     # currently assumes header and body namespaces have no collisions
     # this seems to be true, though. Alternately, could add `header_` to header
     data.update(flatten_dict(record_header))
