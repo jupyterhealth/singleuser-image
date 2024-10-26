@@ -15,9 +15,9 @@ license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.7"
 dependencies = [
-    "boto3",
-    "commonhealth_cloud_storage_client >=1.0.5",
     "pandas",
+    "requests",
+    "yarl",
 ]
 
 [project.urls]
@@ -26,6 +26,8 @@ Documentation = "https://github.com/jupyterhealth/singleuser-image#readme"
 Issues = "https://github.com/jupyterhealth/singleuser-image/issues"
 Source = "https://github.com/jupyterhealth/singleuser-image"
 
+[project.optional-dependencies]
+test = ["pytest"]
 
 [build-system]
 requires = ["hatchling"]
@@ -51,6 +53,9 @@ select = [
     "UP", # pyupgrade
     "F", # flake8
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D"]
 
 [tool.tbump]
 # this will eventually be in its own repo

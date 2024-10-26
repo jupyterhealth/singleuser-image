@@ -1,7 +1,7 @@
 FROM quay.io/jupyter/scipy-notebook:2024-04-01
 
 # make sure jupyterhub version matches
-RUN mamba install -y jupyterhub==4.1.5 \
+RUN mamba install -y jupyterhub==4.1.6 \
  && mamba clean -pity
 
 ARG PIP_CACHE_DIR=/tmp/pip-cache
