@@ -1,11 +1,12 @@
 """JupyterHealth client implementation
 
-wraps CHCS and FHIR APIs in convenience methods
+wraps Exchange and FHIR APIs in convenience methods
 """
 
 from __future__ import annotations
 
 import os
+import warnings
 from enum import Enum
 from typing import Any, Generator, Literal, cast, overload
 
@@ -14,6 +15,8 @@ import requests
 from yarl import URL
 
 from .utils import tidy_observation
+
+_EXCHANGE_URL = os.environ.get("JHE_URL", "https://jhe.fly.dev")
 
 
 class Code(Enum):
@@ -53,16 +56,13 @@ class RequestError(requests.HTTPError):
         return "\n".join(chunks)
 
 
-class JupyterHealthCHClient:
-    """JupyterHealth client for CommonHealth Cloud
-
-    Fills out default values for all args and loads state from AWS Secrets
+class JupyterHealthClient:
+    """
+    Client for JupyterHealth data Exchange
     """
 
-    def __init__(
-        self, token: str | None = None, chcs_url: str = "https://chcs.fly.dev"
-    ):
-        """Construct a JupyterHealth cilent for Common Health Cloud Storage
+    def __init__(self, url: str = _EXCHANGE_URL, *, token: str | None = None):
+        """Construct a client for JupyterHealth  data exchange
 
         Credentials will be loaded from the environment and defaults.
         No arguments are required.
@@ -70,9 +70,16 @@ class JupyterHealthCHClient:
         By default, creates a client connected to the MVP application.
         """
         if token is None:
-            token = os.environ.get("CHCS_TOKEN", None)
+            token = os.environ.get("JHE_TOKEN", None)
+            if token is None:
+                token = os.environ.get("CHCS_TOKEN", None)
+                warnings.warn(
+                    "$CHCS_TOKEN env is deprecated, use $JHE_TOKEN",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
 
-        self._url = URL(chcs_url)
+        self._url = URL(url)
         self.session = requests.Session()
         self.session.headers = {"Authorization": f"Bearer {token}"}
 
@@ -80,11 +87,12 @@ class JupyterHealthCHClient:
     def _api_request(
         self, path: str, *, return_response: Literal[True], **kwargs
     ) -> requests.Response: ...
-    # def _api_request(self, path: str, *, return_response=Literal[False], **kwargs) -> dict[str,Any] | None: ...
+
     @overload
     def _api_request(
         self, path: str, *, method: str = "GET", check=True, fhir=False, **kwargs
     ) -> dict[str, Any] | None: ...
+
     def _api_request(
         self,
         path: str,
@@ -185,3 +193,16 @@ class JupyterHealthCHClient:
         )
         records = [tidy_observation(obs) for obs in observations]
         return pd.DataFrame.from_records(records)
+
+
+class JupyterHealthCHClient(JupyterHealthClient):
+    """Deprecated name for JupyterHealthClient"""
+
+    def __init__(self, *args, **kwargs):
+        """construct Jupyter"""
+        warnings.warn(
+            "JupyterHealthCHClient is deprecated. Use JupyterHealthClient",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
