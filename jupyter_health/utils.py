@@ -8,7 +8,7 @@ import json
 import pandas as pd
 
 
-def flatten_dict(d: dict, prefix: str = "") -> dict:
+def flatten_dict(d: dict | list, prefix: str = "") -> dict:
     """flatten a nested dictionary into
 
     adds nested keys to flat key names, so
