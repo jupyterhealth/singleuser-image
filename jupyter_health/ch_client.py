@@ -123,13 +123,13 @@ class JupyterHealthClient:
             # return None for empty response body
             return None
 
-    def _list_api_request(self, path, **kwargs):
+    def _list_api_request(self, path: str, **kwargs) -> Generator[dict[str, Any]]:
         """Get a list from an /api/v1 endpoint"""
         r: dict = self._api_request(path, **kwargs)
         yield from r["results"]
         # TODO: handle pagination fields
 
-    def _fhir_list_api_request(self, path, **kwargs):
+    def _fhir_list_api_request(self, path: str, **kwargs) -> Generator[dict[str, Any]]:
         """Get a list from a fhir endpoint"""
         r: dict = self._api_request(path, fhir=True, **kwargs)
         for entry in r["entry"]:
@@ -146,12 +146,45 @@ class JupyterHealthClient:
         """Get the current user"""
         return cast(dict[str, Any], self._api_request("users/profile"))
 
-    def list_patients(self) -> Generator[dict[str, Any]]:
-        """Return list of patient ids
+    def get_patient(self, id: int) -> dict[str, Any]:
+        """Get a single patient by id"""
+        return cast(dict[str, Any], self._api_request(f"patients/{id}"))
 
-        These are the keys that may be passed to e.g. fetch_data
+    def list_patients(self) -> Generator[dict[str, dict[str, Any]]]:
+        """Return iterator of patients
+
+        Patient ids are the keys that may be passed to e.g. fetch_data
         """
         return self._list_api_request("patients")
+
+    def get_patient_consents(self, patient_id: int) -> dict[str, Any]:
+        """Return patient consent status"""
+        return cast(
+            dict[str, Any], self._api_request(f"patients/{patient_id}/consents")
+        )
+
+    def get_study(self, id: int) -> dict[str, Any]:
+        """Get a single study by id"""
+        return cast(dict[str, Any], self._api_request(f"studies/{id}"))
+
+    def list_studies(self) -> Generator[dict[str, dict[str, Any]]]:
+        """Return iterator of studies
+
+        Only returns studies I have access to (i.e. owned by my organization(s))
+        """
+        return self._list_api_request("studies")
+
+    def get_organization(self, id: int) -> dict[str, Any]:
+        """Get a single organization by id"""
+        return cast(dict[str, Any], self._api_request(f"organizations/{id}"))
+
+    def list_organizations(self) -> Generator[dict[str, dict[str, Any]]]:
+        """Return iterator of all organizations
+
+        Includes all organizations, including those of which I am not a member.
+        The ROOT organization has `id=0`.
+        """
+        return self._list_api_request("organizations")
 
     def list_observations(
         self,
@@ -175,7 +208,7 @@ class JupyterHealthClient:
         if code:
             if isinstance(code, Code):
                 code = code.value
-            if "|" not in code:
+            if code is None or "|" not in code:
                 # no code system specified, default to openmhealth
                 code = f"https://w3id.org/openmhealth|{code}"
             params["code"] = code
