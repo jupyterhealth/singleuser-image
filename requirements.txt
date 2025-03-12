@@ -2,6 +2,7 @@
 black
 cgmquantify-updated
 gh-scoped-creds
+jupyterhealth-client==0.0.1a1
 jupyterlab-code-formatter
 nbgitpuller
 pre-commit
