@@ -1,0 +1,10 @@
+# additional requirements to be installed with pip
+black
+cgmquantify-updated
+gh-scoped-creds
+jupyterhealth-client==0.0.1a3
+jupyterlab-code-formatter
+nbgitpuller
+pre-commit
+ruff
+voila

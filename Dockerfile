@@ -1,8 +1,9 @@
-FROM quay.io/jupyter/scipy-notebook:2024-04-01
-
 # make sure jupyterhub version matches
-RUN mamba install -y jupyterhub==4.1.6 \
- && mamba clean -pity
+FROM quay.io/jupyter/scipy-notebook:2025-04-10
+
+# install jupyterhub if we need to pin it
+# RUN mamba install -y jupyterhub-core==5.2.1 \
+ # && mamba clean -a
 
 ARG PIP_CACHE_DIR=/tmp/pip-cache
 COPY requirements.txt /src/requirements.txt

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+
+from pathlib import Path
+from subprocess import run
+
+repo_root = Path(__file__).parent.parent.resolve()
+
+
+def get_image():
+    """Get the current image from Dockerfile"""
+    dockerfile = repo_root / "Dockerfile"
+    with dockerfile.open() as f:
+        for line in f:
+            if line.startswith("FROM"):
+                return line.split()[1]
+    raise ValueError(f"FROM not found in {dockerfile}")
+
+
+def refreeze():
+    """Refreese rqeuirements.txt from requirements.in using base image as a constraints file"""
+    image = get_image()
+    run(
+        [
+            "docker",
+            "run",
+            "--platform=linux/amd64",
+            "--rm",
+            "--env=CUSTOM_COMPILE_COMMAND=ci/refreeze",
+            "-v",
+            f"{repo_root}:/src",
+            "-w",
+            "/src",
+            image,
+            "sh",
+            "-c",
+            """
+            set -ex
+            pip install pip-tools
+            pip list --format=freeze > /tmp/constraints.txt
+            pip-compile --strip-extras --constraint /tmp/constraints.txt
+            """,
+        ],
+        check=True,
+    )
+
+
+if __name__ == "__main__":
+    refreeze()
