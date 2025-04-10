@@ -158,7 +158,7 @@ jupyter-server-terminals==0.5.3
     # via
     #   -c /tmp/constraints.txt
     #   jupyter-server
-jupyter-smart-on-fhir==0.1.0a2
+jupyter-smart-on-fhir==0.1.0a3
     # via -r requirements.in
 jupyterhealth-client==0.0.1a4
     # via -r requirements.in
