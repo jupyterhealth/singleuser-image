@@ -158,7 +158,9 @@ jupyter-server-terminals==0.5.3
     # via
     #   -c /tmp/constraints.txt
     #   jupyter-server
-jupyterhealth-client==0.0.1a3
+jupyter-smart-on-fhir==0.1.0a2
+    # via -r requirements.in
+jupyterhealth-client==0.0.1a4
     # via -r requirements.in
 jupyterlab-code-formatter==3.0.2
     # via -r requirements.in
@@ -282,6 +284,10 @@ pygments==2.19.1
     # via
     #   -c /tmp/constraints.txt
     #   nbconvert
+pyjwt==2.10.1
+    # via
+    #   -c /tmp/constraints.txt
+    #   jupyter-smart-on-fhir
 pyparsing==3.2.3
     # via
     #   -c /tmp/constraints.txt
@@ -322,6 +328,7 @@ requests==2.32.3
     # via
     #   -c /tmp/constraints.txt
     #   gh-scoped-creds
+    #   jupyter-smart-on-fhir
     #   jupyterhealth-client
     #   jupyterlab-server
 rfc3339-validator==0.1.4
