@@ -2,6 +2,7 @@
 black
 cgmquantify-updated
 gh-scoped-creds
+jupyter-ai
 jupyter-smart-on-fhir==0.1.0a3
 jupyterhealth-client==0.0.1a4
 jupyterlab-code-formatter

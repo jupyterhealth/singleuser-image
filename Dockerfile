@@ -1,5 +1,5 @@
 # make sure jupyterhub version matches
-FROM quay.io/jupyter/scipy-notebook:2025-04-10
+FROM quay.io/jupyter/scipy-notebook:2025-10-06
 
 # install jupyterhub if we need to pin it
 # RUN mamba install -y jupyterhub-core==5.2.1 \
