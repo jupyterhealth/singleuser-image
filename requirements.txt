@@ -331,6 +331,7 @@ matplotlib==3.10.6
     # via
     #   -c /tmp/constraints.txt
     #   cgmquantify-updated
+    #   mplcursors
 matplotlib-inline==0.1.7
     # via
     #   -c /tmp/constraints.txt
@@ -339,6 +340,8 @@ mistune==3.1.4
     # via
     #   -c /tmp/constraints.txt
     #   nbconvert
+mplcursors==0.7
+    # via -r requirements.in
 msgpack==1.1.1
     # via
     #   -c /tmp/constraints.txt
@@ -381,6 +384,7 @@ numpy==2.3.3
     #   matplotlib
     #   pandas
     #   patsy
+    #   ruptures
     #   scipy
     #   statsmodels
 openai==2.1.0
@@ -581,9 +585,12 @@ rpds-py==0.27.1
     #   referencing
 ruff==0.11.4
     # via -r requirements.in
+ruptures==1.1.10
+    # via -r requirements.in
 scipy==1.16.2
     # via
     #   -c /tmp/constraints.txt
+    #   ruptures
     #   statsmodels
 send2trash==1.8.3
     # via
