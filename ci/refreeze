@@ -26,6 +26,8 @@ def refreeze():
             "--platform=linux/amd64",
             "--rm",
             "--env=CUSTOM_COMPILE_COMMAND=ci/refreeze",
+            "-e",
+            "PIP_CACHE_DIR=/src/.cache/pip",
             "-v",
             f"{repo_root}:/src",
             "-w",
@@ -36,8 +38,9 @@ def refreeze():
             """
             set -ex
             pip install pip-tools
-            pip list --format=freeze > /tmp/constraints.txt
-            pip-compile --strip-extras --constraint /tmp/constraints.txt
+            # temporary fix: constraint on tinycss2 is wrong
+            pip list --format=freeze | grep -v tinycss2 > constraints.txt
+            pip-compile -v --strip-extras --constraint constraints.txt
             """,
         ],
         check=True,
