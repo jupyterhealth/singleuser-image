@@ -274,7 +274,7 @@ jupyter-server-terminals==0.5.3
     #   jupyter-server
 jupyter-smart-on-fhir==0.1.0a3
     # via -r requirements.in
-jupyterhealth-client==0.1.0a3
+jupyterhealth-client==0.2.0
     # via -r requirements.in
 jupyterlab-code-formatter==3.0.2
     # via -r requirements.in
