@@ -2,11 +2,10 @@
 black
 cgmquantify-updated
 gh-scoped-creds
-jupyter-ai
+jupyter-ai==3.0.0b9
 jupyter-smart-on-fhir==0.1.0a3
 jupyterhealth-client==0.2.0
 jupyterlab-code-formatter
-langchain-openai
 mplcursors
 nbgitpuller
 pre-commit
