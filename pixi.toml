@@ -1,0 +1,54 @@
+[workspace]
+authors = ["Min RK <benjaminrk@gmail.com>"]
+channels = ["conda-forge"]
+name = "user"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+install-opencode = "bash install-opencode.sh"
+
+[dependencies]
+altair = "*"
+black = "*"
+code-server = ">=4"
+curl = "*"
+geopandas = "*"
+gh = "*"
+gh-scoped-creds = "*"
+ipywidgets = "*"
+isort = "*"
+jq = "*"
+jupyter_server_documents = "*"
+jupyter-ai = ">=3.0.0,<4"
+jupyter-book = "*"
+jupyter-resource-usage = "*"
+jupyter-server-proxy = "*"
+jupyter-sshd-proxy = "*"
+jupyter-vscode-proxy = "*"
+jupyterhub-singleuser = "==5.5.1"
+jupyterlab = ">=4.5.7,<5"
+jupyterlab_code_formatter = "*"
+jupyterlab-git = "*"
+mamba = "*"
+matplotlib-base = "*"
+mplcursors = "*"
+nb-cli = "*"
+nbgitpuller = "*"
+nodejs = "22.*"
+pandas = "*"
+pip = "*"
+pixi = "*"
+polars = "*"
+python = "3.12.*"
+ruff = "*"
+ruptures = "*"
+scipy = "*"
+unzip = "*"
+uv = "*"
+voila = "*"
+
+[pypi-dependencies]
+cgmquantify-updated = "*"
+jupyter-smart-on-fhir = ">=0.1.0a4"
+jupyterhealth-client = "*"

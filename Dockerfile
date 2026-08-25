@@ -1,11 +1,40 @@
-# make sure jupyterhub version matches
-FROM quay.io/jupyter/scipy-notebook:2026-07-20
+FROM ghcr.io/prefix-dev/pixi:0.77.1 AS build
+# git needed for dev lightcone
+RUN pixi global install git
 
-# install jupyterhub if we need to pin it
-# RUN mamba install -y jupyterhub-core==5.2.1 \
- # && mamba clean -a
+# copy source code, pixi.toml and pixi.lock to the container
+COPY pixi* /srv/
+WORKDIR /srv/
+RUN pixi install
+COPY install-opencode.sh /srv/
+RUN pixi run install-opencode
 
-ARG PIP_CACHE_DIR=/tmp/pip-cache
-COPY requirements.txt /src/requirements.txt
-RUN --mount=type=cache,uid=1000,target=${PIP_CACHE_DIR} \
-    pip install -r /src/requirements.txt
+FROM debian:13
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        nano \
+        procps \
+        vim \
+        wget \
+ && rm -rf /var/lib/apt/lists/*
+ 
+ARG UID=1000
+RUN useradd -m -u 1000 jovyan
+COPY --from=build --chown=1000:1000 /srv/.pixi/envs/default /srv/.pixi/envs/default
+COPY mamba.sh /etc/profile.d/
+COPY entrypoint.sh /entrypoint.sh
+COPY mambarc /srv/.pixi/envs/default/.condarc
+
+ENV PYTHONUNBUFFERED=1 \
+    MAMBA_ROOT_PREFIX=/srv/.pixi/envs/default \
+    PATH=/srv/.pixi/envs/default/bin:$PATH:/usr/sbin \
+    SHELL=/usr/bin/bash
+WORKDIR /home/jovyan
+RUN chsh jovyan --shell /bin/bash
+USER $UID
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["jupyterhub-singleuser"]

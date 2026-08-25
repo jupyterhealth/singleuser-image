@@ -1,0 +1,4 @@
+envs_dirs:
+  - /home/jovyan/.mamba/envs
+pkgs_dirs:
+  - /tmp/mamba/pkgs
