@@ -47,6 +47,7 @@ scipy = "*"
 unzip = "*"
 uv = "*"
 voila = "*"
+tqdm = "*"
 
 [pypi-dependencies]
 cgmquantify-updated = "*"
