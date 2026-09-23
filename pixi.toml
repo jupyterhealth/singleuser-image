@@ -48,6 +48,7 @@ unzip = "*"
 uv = "*"
 voila = "*"
 tqdm = "*"
+seaborn = "*"
 
 [pypi-dependencies]
 cgmquantify-updated = "*"
