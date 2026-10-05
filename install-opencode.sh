@@ -11,3 +11,4 @@ test -f $CONDA_PREFIX/bin/opencode
 CLAUDE_VERSION=2.1.288
 curl -s -o $CONDA_PREFIX/bin/claude -L https://downloads.claude.ai/claude-code-releases/${CLAUDE_VERSION}/${platform}/claude
 chmod +x $CONDA_PREFIX/bin/claude
+npm install -g @zed-industries/claude-agent-acp
