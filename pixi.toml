@@ -51,6 +51,7 @@ voila = "*"
 tqdm = "*"
 seaborn = "*"
 plotly = "*"
+anywidget = "*"
 
 [pypi-dependencies]
 cgmquantify-updated = "*"
