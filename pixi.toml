@@ -50,6 +50,7 @@ uv = "*"
 voila = "*"
 tqdm = "*"
 seaborn = "*"
+plotly = "*"
 
 [pypi-dependencies]
 cgmquantify-updated = "*"
