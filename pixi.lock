@@ -444,10 +444,10 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.1-pyh5ded981_0.conda
       - pypi: https://files.pythonhosted.org/packages/17/e9/5efe37828965323d1193bd01ecf95780f69023cba69c33ad28862879c44b/jupyter_smart_on_fhir-0.2.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/4f/ef/c66110d46fb800dda0bf33164182dfadabe26a90e4476844d502a23dca8e/pytz-2026.5-py2.py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/85/d9/c1d4362e373de5972bbc9735da93116b6a3ce7000bf8e362d045d426b774/jupyterhealth_client-0.4.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/87/37/874eaacd44cfa804ca998190a365e0641cfe9a065d5b510b41692cf6b8a1/cgmquantify_updated-0.5.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/cf/7a/ea0f3e3ea74be36fc7cf54f966cde732a3de72697983cdb5646b0a4dacde/datetime-6.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/dc/5a/126eeee4da016f5cca4db2297496069d5f1ba901fb53ebf104f9c087a113/zope_interface-8.6-cp312-cp312-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/de/14/f69d553ca1a0fde55e28971a333ae4511471482afaae5f4fb62d1ed17109/jupyterhealth_client-0.5.0-py3-none-any.whl
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
   build_number: 20
@@ -7232,18 +7232,6 @@ packages:
   name: pytz
   version: '2026.5'
   sha256: e658af3757f9e26a9d25dd2aff38335acd92bc9104f890a894b2c1ba28311b03
-- pypi: https://files.pythonhosted.org/packages/85/d9/c1d4362e373de5972bbc9735da93116b6a3ce7000bf8e362d045d426b774/jupyterhealth_client-0.4.0-py3-none-any.whl
-  name: jupyterhealth-client
-  version: 0.4.0
-  sha256: a9b053b513733ec95b298b127d51334c1b4b862c2e9e34d0207020fcb2201503
-  requires_dist:
-  - pandas
-  - requests
-  - yarl
-  - pytest ; extra == 'test'
-  - pytest-cov ; extra == 'test'
-  - responses ; extra == 'test'
-  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/87/37/874eaacd44cfa804ca998190a365e0641cfe9a065d5b510b41692cf6b8a1/cgmquantify_updated-0.5.3-py3-none-any.whl
   name: cgmquantify-updated
   version: 0.5.3
@@ -7276,4 +7264,16 @@ packages:
   - coverage[toml] ; extra == 'testing'
   - zope-event ; extra == 'testing'
   - zope-testing ; extra == 'testing'
+  requires_python: '>=3.10'
+- pypi: https://files.pythonhosted.org/packages/de/14/f69d553ca1a0fde55e28971a333ae4511471482afaae5f4fb62d1ed17109/jupyterhealth_client-0.5.0-py3-none-any.whl
+  name: jupyterhealth-client
+  version: 0.5.0
+  sha256: 0eaedf0baa5ae990d4403c398f6f51d89b8125e07c52590003474304fb2bfdb1
+  requires_dist:
+  - pandas
+  - requests
+  - yarl
+  - pytest ; extra == 'test'
+  - pytest-cov ; extra == 'test'
+  - responses ; extra == 'test'
   requires_python: '>=3.10'
