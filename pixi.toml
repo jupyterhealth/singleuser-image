@@ -54,6 +54,7 @@ plotly = "*"
 anywidget = "*"
 pre-commit = "*"
 prek = "*"
+typst = "*"
 
 [pypi-dependencies]
 cgmquantify-updated = "*"
